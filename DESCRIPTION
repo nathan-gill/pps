@@ -1,0 +1,21 @@
+Package: pps
+Title: Analyzes Graphical Models Using PPS
+Version: 0.0.0.9000
+Authors@R: 
+    person(given = "Nathan",
+           family = "Gill",
+           role = c("aut", "cre"),
+           email = "nathan.gill@northwestern.edu")
+Description: Analyzes graphical models using PPS.
+License: `use_mit_license()`
+Encoding: UTF-8
+LazyData: true
+Imports:
+    shiny,
+    DT,
+    igraph,
+    RColorBrewer,
+    glasso,
+    tidyverse
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
