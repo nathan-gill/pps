@@ -15,28 +15,28 @@ run.PPS.App <- function() {
   ui <- shiny::fluidPage(
 
     # Application title
-    titlePanel("PPS Analysis"),
+    shiny::titlePanel("PPS Analysis"),
 
-    sidebarLayout(
-    sidebarPanel(
-    fileInput("file", "Upload File", accept = ".csv"),
+    shiny::sidebarLayout(
+    shiny::sidebarPanel(
+    shiny::fileInput("file", "Upload File", accept = ".csv"),
 
-        uiOutput("penalty_choice"),
-        uiOutput("node_1_choice"),
-        uiOutput("node_2_choice"),
-        uiOutput("K_choice"),
-        uiOutput("button")
+        shiny::uiOutput("penalty_choice"),
+        shiny::uiOutput("node_1_choice"),
+        shiny::uiOutput("node_2_choice"),
+        shiny::uiOutput("K_choice"),
+        shiny::uiOutput("button")
 
 
       ),
 
 
-      mainPanel(
-        tabsetPanel(type = "tabs",
-                    tabPanel("Network",plotOutput("network_plot")),
-                    tabPanel("Paths", verbatimTextOutput("paths")),
-                    tabPanel("Subnetwork", plotOutput("subnetwork")),
-                    tabPanel("View Data", DT::dataTableOutput("dataDisplay"))
+      shiny::mainPanel(
+        shiny::tabsetPanel(type = "tabs",
+                    shiny::tabPanel("Network", shiny::plotOutput("network_plot")),
+                    shiny::tabPanel("Paths", shiny::verbatimTextOutput("paths")),
+                    shiny::tabPanel("Subnetwork", shiny::plotOutput("subnetwork")),
+                    shiny::tabPanel("View Data", DT::dataTableOutput("dataDisplay"))
 
         )
       )
@@ -48,15 +48,15 @@ run.PPS.App <- function() {
   server <- function(input, output) {
 
 
-    output$penalty_choice <- renderUI({
+    output$penalty_choice <- shiny::renderUI({
       if (is.null(input$file$datapath)) {
         HTML("")
       } else {
-        numericInput("penalty", "Graphical Lasso Penalty:", value = 1)
+        shiny::numericInput("penalty", "Graphical Lasso Penalty:", value = 1)
       }
     })
 
-    output$node_1_choice <- renderUI({
+    output$node_1_choice <- shiny::renderUI({
       if (is.null(input$file$datapath)) {
         HTML("")
       }
@@ -65,14 +65,14 @@ run.PPS.App <- function() {
         data <- data[,-1]
         names <- colnames(data)
         if (is.null(names)) {
-          selectInput("node1", "Node 1", 1:dim(data)[2])
+          shiny::selectInput("node1", "Node 1", 1:dim(data)[2])
         } else {
-          selectInput("node1", "Node 1", sort(names))
+          shiny::selectInput("node1", "Node 1", sort(names))
         }
       }
     })
 
-    output$node_2_choice <- renderUI({
+    output$node_2_choice <- shiny::renderUI({
       if (is.null(input$file$datapath)) {
         HTML("")
       }
@@ -81,18 +81,18 @@ run.PPS.App <- function() {
         data <- data[,-1]
         names <- colnames(data)
         if (is.null(names)) {
-          selectInput("node2", "Node 2", 1:dim(data)[2])
+          shiny::selectInput("node2", "Node 2", 1:dim(data)[2])
         } else {
-          selectInput("node2", "Node 2", sort(names))
+          shiny::selectInput("node2", "Node 2", sort(names))
         }
       }
     })
 
-    output$K_choice <- renderUI({
+    output$K_choice <- shiny::renderUI({
       if (is.null(input$file$datapath)) {
         HTML("")
       } else {
-        numericInput("K",
+        shiny::numericInput("K",
                      "Search paths up to length: ",
                      value = 5,
                      min = 1,
@@ -101,37 +101,37 @@ run.PPS.App <- function() {
       }
     })
 
-    output$button <- renderUI({
+    output$button <- shiny::renderUI({
       if (is.null(input$file$datapath)) {
         HTML("")
       } else {
-        actionButton("button_submit", "Get PPS")
+        shiny::actionButton("button_submit", "Get PPS")
       }
     })
 
     #make everything update when submit is pressed
-    file <- eventReactive(input$button_submit, {
+    file <- shiny::eventReactive(input$button_submit, {
       input$file
     })
 
-    penalty <- eventReactive(input$button_submit, {
+    penalty <- shiny::eventReactive(input$button_submit, {
       input$penalty
     })
 
-    node1 <- eventReactive(input$button_submit, {
+    node1 <- shiny::eventReactive(input$button_submit, {
       input$node1
     })
 
-    node2 <- eventReactive(input$button_submit, {
+    node2 <- shiny::eventReactive(input$button_submit, {
       input$node2
     })
 
-    K <- eventReactive(input$button_submit, {
+    K <- shiny::eventReactive(input$button_submit, {
       input$K
     })
 
 
-    output$network_plot <- renderPlot({
+    output$network_plot <- shiny::renderPlot({
       if (is.null(input$file$datapath)) {
         plot.new()
       } else {
@@ -174,7 +174,7 @@ run.PPS.App <- function() {
     height = 1000,
     width = 1000)
 
-    output$paths <- renderPrint({
+    output$paths <- shiny::renderPrint({
       data <- read.csv(file()$datapath)
       data <- data[,-1]
       if (floor(K()) != K()) {
@@ -212,7 +212,7 @@ run.PPS.App <- function() {
     })
 
 
-    output$subnetwork <- renderPlot({
+    output$subnetwork <- shiny::renderPlot({
       data <- read.csv(file()$datapath)
       data <- data[,-1]
       if (floor(K()) != K()) {
@@ -313,5 +313,5 @@ run.PPS.App <- function() {
 
 
   }
-  shinyApp(ui, server)
+  shiny::shinyApp(ui, server)
 }
