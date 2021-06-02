@@ -1,4 +1,4 @@
-#' Launch RShiny app for PPS analysis
+#' Launch RShiny app for PPS analysis with mediation
 #'
 #' Launches an RShiny app to for PPS analysis. The
 #' app is essentially a wrapper for the \code{pps}
@@ -10,7 +10,7 @@
 #' @export
 
 
-run.PPS.App <- function() {
+run.PPS.App.Mediation <- function() {
 
   ui <- shiny::fluidPage(
 
@@ -18,12 +18,13 @@ run.PPS.App <- function() {
     shiny::titlePanel("PPS Analysis"),
 
     shiny::sidebarLayout(
-    shiny::sidebarPanel(
-    shiny::fileInput("file", "Upload File", accept = ".csv"),
+      shiny::sidebarPanel(
+        shiny::fileInput("file", "Upload File", accept = ".csv"),
 
         shiny::uiOutput("penalty_choice"),
         shiny::uiOutput("node_1_choice"),
         shiny::uiOutput("node_2_choice"),
+        shiny::uiOutput("mediator_choice"),
         shiny::uiOutput("K_choice"),
         shiny::uiOutput("button")
 
@@ -33,10 +34,11 @@ run.PPS.App <- function() {
 
       shiny::mainPanel(
         shiny::tabsetPanel(type = "tabs",
-                    shiny::tabPanel("Network", shiny::plotOutput("network_plot")),
-                    shiny::tabPanel("Paths", shiny::verbatimTextOutput("paths")),
-                    shiny::tabPanel("Subnetwork", shiny::plotOutput("subnetwork")),
-                    shiny::tabPanel("View Data", DT::dataTableOutput("dataDisplay"))
+                           shiny::tabPanel("Network", shiny::plotOutput("network_plot")),
+                           shiny::tabPanel("Paths", shiny::verbatimTextOutput("paths")),
+                           shiny::tabPanel("Mediation", shiny::verbatimTextOutput("mediation")),
+                           shiny::tabPanel("Subnetwork", shiny::plotOutput("subnetwork")),
+                           shiny::tabPanel("View Data", DT::dataTableOutput("dataDisplay"))
 
         )
       )
@@ -88,16 +90,35 @@ run.PPS.App <- function() {
       }
     })
 
+
+    output$mediator_choice <- shiny::renderUI({
+      if (is.null(input$file$datapath)) {
+        HTML("")
+      }
+      else {
+        data <- read.csv(input$file$datapath)
+        data <- data[,-1]
+        names <- colnames(data)
+        if (is.null(names)) {
+          shiny::selectInput("mediator", "Mediator", 1:dim(data)[2])
+        } else {
+          shiny::selectInput("mediator", "Mediator", sort(names))
+        }
+      }
+    })
+
+
+
     output$K_choice <- shiny::renderUI({
       if (is.null(input$file$datapath)) {
         HTML("")
       } else {
         shiny::numericInput("K",
-                     "Search paths up to length: ",
-                     value = 5,
-                     min = 1,
-                     max = NA,
-                     step = 1)
+                            "Search paths up to length: ",
+                            value = 5,
+                            min = 1,
+                            max = NA,
+                            step = 1)
       }
     })
 
@@ -126,6 +147,10 @@ run.PPS.App <- function() {
       input$node2
     })
 
+    mediator <- shiny::eventReactive(input$button_submit, {
+      input$mediator
+    })
+
     K <- shiny::eventReactive(input$button_submit, {
       input$K
     })
@@ -142,15 +167,17 @@ run.PPS.App <- function() {
         if (is.null(colnames(data))) {
           i <- input$node1
           j <- input$node2
+          med <- input$mediator
         } else {
           i <- which(colnames(data) == input$node1)
           j <- which(colnames(data) == input$node2)
+          med <- which(colnames(data) == input$mediator)
         }
 
         cov <- cov(as.matrix(unname(data)))
 
 
-        pal <- c(igraph::categorical_pal(1), "blue")
+        pal <- c(igraph::categorical_pal(1), "blue", "red")
 
         res_gl <- glasso::glasso(cov, input$penalty)
         e <- ifelse(abs(res_gl$wi) > 0, 1, 0)
@@ -160,15 +187,16 @@ run.PPS.App <- function() {
         temp <- rep(1, nnodes)
         temp[i] <- 2
         temp[j] <- 2
+        temp[med] <- 3
         temp_size <- rep(5, nnodes)
         #temp_size[i] <- 7
         #temp_size[j] <- 7
         set.seed(1)
 
-          plot(gr_gl, vertex.label.cex = 0.9,
-               vertex.size = temp_size,
-               vertex.label = names(data),
-               vertex.color = pal[temp])
+        plot(gr_gl, vertex.label.cex = 0.9,
+             vertex.size = temp_size,
+             vertex.label = names(data),
+             vertex.color = pal[temp])
       }
     },
     height = 1000,
@@ -212,6 +240,64 @@ run.PPS.App <- function() {
     })
 
 
+    output$mediation <- shiny::renderPrint({
+      data <- read.csv(file()$datapath)
+      data <- data[,-1]
+      if (floor(K()) != K()) {
+        stop("Path length is not an integer.")
+      }
+      nnodes <- dim(data)[2]
+      if (is.null(colnames(data))) {
+        i <- node1()
+        j <- node2()
+        med <- mediator()
+      } else {
+        i <- which(colnames(data) == node1())
+        j <- which(colnames(data) == node2())
+        med <- which(colnames(data) == mediator())
+        med <- colnames(data)[med]
+      }
+
+
+
+      cov <- cov(as.matrix(unname(data)))
+
+
+
+      res_gl <- glasso::glasso(cov, penalty())
+
+
+      #convert precision matrix to partial correlation matrix
+      pcor <- flip_off_diag(cov2cor(res_gl$wi))
+
+      #add back names
+      colnames(pcor) <- colnames(data)
+
+      res <- pps(pcor, i, j, K = K(), prec = FALSE)
+
+      npaths <- length(res$path)
+
+      pm <- 0
+      for (h in 1:npaths) {
+        if (med %in% res$path[[h]]) {
+          pm <- pm + unlist(res$pps[[h]])
+        }
+      }
+
+      print(pm)
+      #get paths with mediator in them
+      #f <-function(x) {
+      #  med %in% x
+      #}
+
+      #inds <- lapply(res$path, f) %>% unlist()
+
+      #print(sum(unlist(res$pps[inds])))
+
+    })
+
+
+
     output$subnetwork <- shiny::renderPlot({
       data <- read.csv(file()$datapath)
       data <- data[,-1]
@@ -237,7 +323,7 @@ run.PPS.App <- function() {
       e <- ifelse(abs(res_gl$wi) > 0, 1, 0)
       diag(e) <- 0
       gr_gl <- igraph::graph_from_adjacency_matrix(e, mode = "undirected")
-      igraph::V(gr_gl)$name <- colnames(data)
+      V(gr_gl)$name <- colnames(data)
 
 
       #convert precision matrix to partial correlation matrix
@@ -267,25 +353,25 @@ run.PPS.App <- function() {
           ind_top_path[c((2*l-1),(2*l))] <- c(top_path[l], top_path[l+1])
         }
       }
-      edges <- igraph::get.edge.ids(gr_gl, ind_top_path)
+      edges <- get.edge.ids(gr_gl, ind_top_path)
 
 
       set.seed(1)
 
-      igraph::E(gr_gl)$color <- "gray"
-      igraph::E(gr_gl)$width <- 1
+      E(gr_gl)$color <- "gray"
+      E(gr_gl)$width <- 1
 
-      igraph::E(gr_gl)$width[edges] <- 2
-      igraph::E(gr_gl)$color[edges] <- "black"
+      E(gr_gl)$width[edges] <- 2
+      E(gr_gl)$color[edges] <- "black"
 
       pal <- c(igraph::categorical_pal(1), "blue")
 
-      igraph::V(gr_gl)$color <- rep(pal[1], nnodes)
-      igraph::V(gr_gl)$color[c(i,j)] <- rep(pal[2], 2)
+      V(gr_gl)$color <- rep(pal[1], nnodes)
+      V(gr_gl)$color[c(i,j)] <- rep(pal[2], 2)
 
 
 
-      sub <- igraph::induced_subgraph(gr_gl, a)
+      sub <- induced_subgraph(gr_gl, a)
       plot(sub,
            vertex.size = 8,
            #vertex.color = color_ac,
